@@ -123,7 +123,69 @@ pub fn silu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
 // C = beta * C + alpha * A @ B^T
 // hint: You don't need to do an explicit transpose of B
 pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor<f32>, alpha: f32) {
-    todo!("实现 matmul_transb，计算前做一些必要的检查会帮助你后续调试");
+    fn transpose(a: &Tensor<f32>) -> Tensor<f32> {
+        let shape = a.shape();
+        let (m, n) = (shape[0], shape[1]);
+        let data = a.data();
+        let mut ret = vec![0.0; m * n];
+        for i in 0..m {
+            for j in 0..n {
+                ret[j * m + i] = data[i * n + j];
+            }
+        }
+        return Tensor::new(ret, &vec![n, m]);
+    }
+
+    fn matmul(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
+        fn dot(x: &[f32], y: &[f32]) -> f32 {
+            return x.iter().zip(y.iter()).map(|(&a, &b)| a * b).sum();
+        }
+
+        let shape_a = a.shape();
+        let shape_b = b.shape();
+        let (m_a, n_a) = (shape_a[0], shape_a[1]);
+        let (m_b, n_b) = (shape_b[0], shape_b[1]);
+        assert!(n_a == m_b);
+        let data_a = a.data();
+        let data_b = b.data();
+        let mut ret = vec![0.0; m_a * n_b];
+
+        for i in 0..m_a {
+            for j in 0..n_b {
+                let row = &data_a[i * n_a..][..n_a];
+                let col = &data_b[j..].iter().step_by(n_b).cloned().collect::<Vec<_>>();
+                ret[i * n_b + j] = dot(row, col);
+            }
+        }
+
+        return Tensor::new(ret, &vec![m_a, n_b]);
+    }
+
+    fn scaler_mul_mat(c: &Tensor<f32>, scaler: f32) -> Tensor<f32> {
+        let data = c.data();
+        let ret = data.iter().map(|&x| x * scaler).collect::<Vec<_>>();
+        return Tensor::new(ret, &c.shape());
+    }
+
+    fn matadd(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
+        let shape = a.shape();
+        let data_a = a.data();
+        let data_b = b.data();
+        let ret = data_a
+            .iter()
+            .zip(data_b.iter())
+            .map(|(&a, &b)| a + b)
+            .collect::<Vec<_>>();
+
+        return Tensor::new(ret, &shape);
+    }
+
+    let B_T = transpose(b);
+    let A_B_T = matmul(a, &B_T);
+    let alpha_A_B_T = scaler_mul_mat(&A_B_T, alpha);
+    let beta_C = scaler_mul_mat(c, beta);
+    let result = matadd(&beta_C, &alpha_A_B_T);
+    *c = result;
 }
 
 // Dot product of two tensors (treated as vectors)
