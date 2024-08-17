@@ -167,25 +167,25 @@ pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor
         return Tensor::new(ret, &c.shape());
     }
 
-    fn matadd(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
-        let shape = a.shape();
-        let data_a = a.data();
-        let data_b = b.data();
-        let ret = data_a
-            .iter()
-            .zip(data_b.iter())
-            .map(|(&a, &b)| a + b)
-            .collect::<Vec<_>>();
-
-        return Tensor::new(ret, &shape);
-    }
-
     let B_T = transpose(b);
     let A_B_T = matmul(a, &B_T);
     let alpha_A_B_T = scaler_mul_mat(&A_B_T, alpha);
     let beta_C = scaler_mul_mat(c, beta);
     let result = matadd(&beta_C, &alpha_A_B_T);
     *c = result;
+}
+
+pub fn matadd(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
+    let shape = a.shape();
+    let data_a = a.data();
+    let data_b = b.data();
+    let ret = data_a
+        .iter()
+        .zip(data_b.iter())
+        .map(|(&a, &b)| a + b)
+        .collect::<Vec<_>>();
+
+    return Tensor::new(ret, &shape);
 }
 
 // Dot product of two tensors (treated as vectors)
